@@ -36,11 +36,13 @@ class FiexmoCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        # ignore messages from this user
         if message.author == self.bot.user:
             return
 
         setting = self.settings_store.get(message.guild.id)
 
+        # only check if there is an attachment or we have moderation configured
         if len(message.attachments) > 0 and \
                 setting.mode != ModMode.OFF and \
                 message.channel.id not in setting.ignores:
@@ -48,14 +50,14 @@ class FiexmoCog(commands.Cog):
                 name = a.filename
                 url = a.url
                 # download the file to test the magic number
-                # TODO: force only a chunk to be downloaded to prevent loading issues with larger files
-                async with aiohttp.ClientSession() as session:
+                # use range to get only first up to 511 bytes to validate magic number
+                async with aiohttp.ClientSession(headers={"Range": "bytes=0-511"}) as session:
                     async with session.get(url) as resp:
-                        if resp.status == 200:
+                        if resp.status == 200 or resp.status == 206:
                             data = await resp.read()
                             mime = magic.from_buffer(data, mime=True)
 
-                            self.logger.log(level=logging.DEBUG, msg=f'{name} {url} {mime}')
+                            self.logger.log(level=logging.DEBUG, msg=f'{name} {len(data)} {mime} {url} {resp.status}')
 
                             if setting.mode == ModMode.AUTOFLAG:
                                 await self.auto_flag(message, mime)
