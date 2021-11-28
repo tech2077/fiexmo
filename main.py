@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -27,16 +28,9 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 FIREBASE_CRED = os.getenv('FIREBASE_ADMIN')
 
-# firestore needs cert json on fs
-with open("cert.json", "w") as f:
-    f.write(FIREBASE_CRED)
-
-cred = credentials.Certificate("cert.json")
+cred = credentials.Certificate(json.loads(FIREBASE_CRED))
 firebase_admin.initialize_app(cred)
 
-# remove creds from memory and fs
-del FIREBASE_CRED
-os.unlink("cert.json")
 
 # mime types we're approving to be posted
 # TODO: make configurable
