@@ -21,7 +21,7 @@ app_handler = logging.FileHandler(filename='fiexmo.log', encoding='utf-8', mode=
 app_handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 app_logger.addHandler(app_handler)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 # load envs
 load_dotenv()

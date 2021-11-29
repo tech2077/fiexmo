@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List
 
 import aiohttp
@@ -21,14 +22,14 @@ class FiexmoCog(commands.Cog):
     async def on_ready(self):
         self.logger.log(level=logging.INFO, msg=f'{self.bot.user} has connected to Discord!')
 
-    async def auto_flag(self, msg, mime):
-        if mime.split('/')[0] in self.approved_mimes:
+    async def auto_flag(self, msg, file_approved: bool):
+        if file_approved:
             await msg.add_reaction('\N{White Heavy Check Mark}')
         else:
             await msg.add_reaction('\N{Cross Mark}')
 
-    async def auto_delete(self, msg, mime, name):
-        if mime.split('/')[0] in self.approved_mimes:
+    async def auto_delete(self, msg, file_approved: bool, name: str):
+        if file_approved:
             pass  # do nothing with approved files
         else:
             await msg.delete()
@@ -59,10 +60,11 @@ class FiexmoCog(commands.Cog):
 
                             self.logger.log(level=logging.DEBUG, msg=f'{name} {len(data)} {mime} {url} {resp.status}')
 
+                            file_approved = any([re.match(mime_regex, mime) for mime_regex in setting.allowed_mimes])
                             if setting.mode == ModMode.AUTOFLAG:
-                                await self.auto_flag(message, mime)
+                                await self.auto_flag(message, file_approved)
                             else:
-                                await self.auto_delete(message, mime, name)
+                                await self.auto_delete(message, file_approved, name)
 
     @commands.command()
     async def mode(self, ctx, mode: str = None, member: discord.Member = None):
@@ -75,7 +77,7 @@ class FiexmoCog(commands.Cog):
             return
 
         if mode is None:
-            await ctx.send(f"Current mode for {ctx.guild} is {setting.mode}")
+            await ctx.send(f"Current mode for {ctx.guild} is {str(setting.mode)}")
         else:
             try:
                 setting.mode = ModMode[mode]
@@ -156,7 +158,7 @@ class FiexmoCog(commands.Cog):
 
         :param ctx:
         :param op:
-        :param channel:
+        :param role:
         :param member:
         """
         self.logger.log(level=logging.INFO, msg=f"guild: {ctx.guild}:{ctx.guild.id} {ctx.channel}:{ctx.channel.id}")
@@ -205,3 +207,46 @@ class FiexmoCog(commands.Cog):
                 self.logger.log(level=logging.INFO, msg=f"{e}")
 
                 await ctx.send(f"Invalid Role Name: {role}")
+
+    @commands.command()
+    async def types(self, ctx, op: str = None, mime: str = None, member: discord.Member = None):
+        self.logger.log(level=logging.INFO, msg=f"guild: {ctx.guild}:{ctx.guild.id} {ctx.channel}:{ctx.channel.id}")
+        setting = self.settings_store.get(ctx.guild.id)
+        author_roles = ctx.author.roles
+
+        if len(setting.use_roles) > 0 and \
+                not any([discord.utils.get(ctx.guild.roles, id=rid) in author_roles for rid in setting.use_roles]):
+            return
+
+        if op == "info" or op == "" or op is None:
+            self.logger.log(level=logging.DEBUG, msg=setting.allowed_mimes)
+
+            await ctx.send(f"Current allowed filetype mimes are: `{setting.allowed_mimes}`\n" +
+                           "For additional information on mimes, visit: " +
+                           "https://www.iana.org/assignments/media-types/media-types.xhtml")
+        elif op == "add" and mime is not None:
+            try:
+                if mime not in setting.allowed_mimes:
+                    setting.allowed_mimes.append(mime)
+
+                self.settings_store.set(ctx.guild.id, setting)
+                setting = self.settings_store.get(ctx.guild.id)
+
+                await ctx.send(f"Mime filter {mime} added to ignore list: {setting.allowed_mimes}")
+            except KeyError as e:
+                self.logger.log(level=logging.INFO, msg=f"{e}")
+
+                await ctx.send(f"Invalid Mime Filter: {mime}")
+        elif op == "remove" and mime is not None:
+            try:
+                if mime in setting.allowed_mimes:
+                    setting.allowed_mimes.remove(mime)
+
+                self.settings_store.set(ctx.guild.id, setting)
+                setting = self.settings_store.get(ctx.guild.id)
+
+                await ctx.send(f"Mime filter {mime} removed from ignore list: {setting.allowed_mimes}")
+            except KeyError as e:
+                self.logger.log(level=logging.INFO, msg=f"{e}")
+
+                await ctx.send(f"Invalid Mime Filter: {mime}")
