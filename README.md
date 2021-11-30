@@ -34,3 +34,5 @@ Mime filters are regex, so you can allow broad categories such as `video/*` for 
 or you can be much more specific and specify `video/mp4` to only allow mp4 video.
 
 For a full list of mime types and categories, go to: [https://www.iana.org/assignments/media-types/media-types.xhtml](https://www.iana.org/assignments/media-types/media-types.xhtml)
+
+Click here: https://discord.com/api/oauth2/authorize?client_id=914259508203782195&permissions=274877918272&scope=bot to add to your server
